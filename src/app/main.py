@@ -1,8 +1,9 @@
-﻿"""FastAPI application entrypoint."""
+"""FastAPI application entrypoint."""
 from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +12,8 @@ from src.app import deps, schemas
 from src.app.settings import get_settings
 from src.generation.cite_guard import fill_missing_sources
 from src.generation.generator import get_generator
-from src.ingestion.indexer import build_indexes
+from src.ingestion.indexer import IndexSummary, build_indexes
+from src.retrieval.hybrid import Context, RetrievalResult
 from src.utils.timer import track_time
 
 app = FastAPI(title="Multimodal RAG System", version="0.1.0")
@@ -30,7 +32,7 @@ def health() -> schemas.HealthResponse:
 
 
 @app.post("/index")
-def index_data(request: schemas.IndexRequest) -> dict:
+def index_data(request: schemas.IndexRequest) -> IndexSummary:
     settings = get_settings()
     data_root = Path(request.data_root or "data")
     summary = build_indexes(data_root=data_root, index_dir=settings.index_dir, duckdb_path=settings.duckdb_path)
@@ -54,9 +56,13 @@ def query(request: schemas.QueryRequest) -> schemas.QueryResponse:
     timings: dict[str, float] = {}
     start = time.perf_counter()
     with track_time(timings, "retrieval_ms"):
-        retrieval = retriever.retrieve(query_text=request.query_text, top_k=request.top_k, image_b64=request.image_b64)
-    contexts = retrieval["contexts"]
-    modality_breakdown = retrieval["modality_breakdown"]
+        retrieval: RetrievalResult = retriever.retrieve(
+            query_text=request.query_text,
+            top_k=request.top_k,
+            image_b64=request.image_b64,
+        )
+    contexts: List[Context] = retrieval["contexts"]
+    modality_breakdown: Dict[str, int] = retrieval["modality_breakdown"]
 
     if not contexts:
         raise HTTPException(status_code=404, detail="No context found for query")

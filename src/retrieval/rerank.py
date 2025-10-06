@@ -1,8 +1,8 @@
-﻿"""Cross-encoder re-ranking with fallback."""
+"""Cross-encoder re-ranking with fallback."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import Any, Dict, Iterable, List, Sequence, cast
 
 from src.retrieval.embeddings import TextEmbedder, cosine_similarity
 from src.utils.logging import get_logger
@@ -19,7 +19,7 @@ except Exception:  # pragma: no cover
 class RankedCandidate:
     content: str
     score: float
-    metadata: dict
+    metadata: Dict[str, Any]
     source_id: str
 
 
@@ -55,9 +55,10 @@ class CrossEncoderReranker:
                 cand.score = float(score)
             return sorted(cand_list, key=lambda c: c.score, reverse=True)[:top_k]
 
-        pairs = [(query, cand.content) for cand in cand_list]
-        scores = model.predict(pairs)
-        for cand, score in zip(cand_list, scores):
+        pairs: List[tuple[str, str]] = [(query, cand.content) for cand in cand_list]
+        raw_scores = model.predict(pairs)
+        score_sequence = cast(Sequence[float], raw_scores)
+        for cand, score in zip(cand_list, score_sequence):
             cand.score = float(score)
         cand_list.sort(key=lambda c: c.score, reverse=True)
         return cand_list[:top_k]

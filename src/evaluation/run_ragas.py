@@ -1,17 +1,19 @@
-﻿"""Command-line evaluation harness."""
+"""Command-line evaluation harness."""
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Dict, List
+from typing import List, cast
 
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.projections.polar import PolarAxes
 
 from src.app.settings import get_settings
 from src.evaluation.datasets import load_examples
-from src.evaluation.metrics import MetricResult, run_ragas_evaluation
+from src.evaluation.metrics import MetricResult, RagasRow, run_ragas_evaluation
 from src.generation.generator import LocalGenerator
-from src.retrieval.hybrid import HybridRetriever
+from src.retrieval.hybrid import HybridRetriever, RetrievalResult
 
 
 def run_eval(output: Path) -> MetricResult:
@@ -20,9 +22,9 @@ def run_eval(output: Path) -> MetricResult:
     generator = LocalGenerator()
     examples = load_examples()
 
-    records: List[Dict[str, object]] = []
+    records: List[RagasRow] = []
     for example in examples:
-        retrieval = retriever.retrieve(example.question, top_k=5)
+        retrieval: RetrievalResult = retriever.retrieve(example.question, top_k=5)
         contexts = retrieval["contexts"]
         answer = generator.generate(example.question, contexts)
         records.append(
@@ -40,7 +42,7 @@ def run_eval(output: Path) -> MetricResult:
     return metrics
 
 
-def _write_report(path: Path, metrics: MetricResult, radar_path: Path, records: List[Dict[str, object]]) -> None:
+def _write_report(path: Path, metrics: MetricResult, radar_path: Path, records: List[RagasRow]) -> None:
     categories = [
         "Faithfulness",
         "Answer Relevancy",
@@ -57,11 +59,13 @@ def _write_report(path: Path, metrics: MetricResult, radar_path: Path, records: 
     values += values[:1]
     angles += angles[:1]
 
-    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
-    ax.plot(angles, values, "o-", linewidth=2)
-    ax.fill(angles, values, alpha=0.25)
-    ax.set_thetagrids([a * 180 / 3.14159 for a in angles[:-1]], categories)
-    ax.set_ylim(0, 1)
+    figure, axes = plt.subplots(subplot_kw={"projection": "polar"})
+    fig = cast(Figure, figure)
+    polar_axes = cast(PolarAxes, axes)
+    polar_axes.plot(angles, values, "o-", linewidth=2)
+    polar_axes.fill(angles, values, alpha=0.25)
+    polar_axes.set_thetagrids([a * 180 / 3.14159 for a in angles[:-1]], categories)
+    polar_axes.set_ylim(0, 1)
     fig.savefig(radar_path, dpi=200)
     plt.close(fig)
 

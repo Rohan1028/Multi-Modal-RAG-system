@@ -1,17 +1,19 @@
-﻿"""Hybrid retrieval combining dense, sparse, image, and table signals."""
+"""Hybrid retrieval combining dense, sparse, image, and table signals."""
 from __future__ import annotations
 
 import base64
 import io
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, TypedDict, cast
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 from src.generation.cite_guard import canonical_source_id
 from src.retrieval import bm25
+from src.retrieval.bm25 import BM25Result, StoredChunk
 from src.retrieval.embeddings import ImageEmbedder, TextEmbedder, cosine_similarity
 from src.retrieval.rerank import CrossEncoderReranker, RankedCandidate
 from src.retrieval.tables import TableRegistry
@@ -27,9 +29,19 @@ RRF_K = 60
 class Context:
     source_id: str
     content: str
-    metadata: Dict[str, object]
+    metadata: Dict[str, Any]
     modality: str
     score: float
+
+
+class ImageMetadata(TypedDict, total=False):
+    source_id: str
+    metadata: Dict[str, Any]
+
+
+class RetrievalResult(TypedDict):
+    contexts: List[Context]
+    modality_breakdown: Dict[str, int]
 
 
 class HybridRetriever:
@@ -44,27 +56,37 @@ class HybridRetriever:
         self.table_registry = TableRegistry(connection=self._connect_duckdb(), index_dir=index_dir)
         self.text_vectors = self._load_vectors("text.index.npy")
         self.image_vectors = self._load_vectors("image.index.npy")
-        self.text_metadata = self._load_json("text_metadata.json")
-        self.image_metadata = self._load_json("image_metadata.json")
+        self.text_metadata = self._load_text_metadata("text_metadata.json")
+        self.image_metadata = self._load_image_metadata("image_metadata.json")
 
     def _connect_duckdb(self):  # pragma: no cover - simple pass-through
         import duckdb
 
         return duckdb.connect(str(self.duckdb_path), read_only=False)
 
-    def _load_vectors(self, filename: str) -> np.ndarray:
+    def _load_vectors(self, filename: str) -> NDArray[np.float32]:
         path = self.index_dir / filename
         if not path.exists():
-            return np.zeros((0, 1), dtype=np.float32)
-        return np.load(path)
+            return cast(NDArray[np.float32], np.zeros((0, 1), dtype=np.float32))
+        loaded = np.load(path)
+        return cast(NDArray[np.float32], loaded.astype(np.float32, copy=False))
 
-    def _load_json(self, filename: str):
+    def _load_text_metadata(self, filename: str) -> List[StoredChunk]:
+        path = self.index_dir / filename
+        if not path.exists():
+            return []
+        import json
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return cast(List[StoredChunk], raw)
+
+    def _load_image_metadata(self, filename: str) -> List[ImageMetadata]:
         path = self.index_dir / filename
         if not path.exists():
             return []
         import json
 
-        return json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return cast(List[ImageMetadata], raw)
 
     def _rrf(self, scored_lists: Iterable[List[Context]]) -> List[Context]:
         accumulator: Dict[str, Context] = {}
@@ -86,12 +108,13 @@ class HybridRetriever:
         contexts: List[Context] = []
         for idx in top_indices:
             meta = self.text_metadata[int(idx)]
-            source_id = meta["metadata"].get("chunk_id") or f"text_{idx}"
+            metadata = dict(meta["metadata"])
+            source_id = cast(str, metadata.get("chunk_id", f"text_{idx}"))
             contexts.append(
                 Context(
                     source_id=str(source_id),
                     content=meta["content"],
-                    metadata=meta["metadata"],
+                    metadata=metadata,
                     modality="text",
                     score=float(scores[idx]),
                 )
@@ -99,15 +122,16 @@ class HybridRetriever:
         return contexts
 
     def _sparse_text(self, query: str, top_k: int) -> List[Context]:
-        results = bm25.search(self.index_dir / "bm25", query, top_k=top_k)
+        results: List[BM25Result] = bm25.search(self.index_dir / "bm25", query, top_k=top_k)
         contexts: List[Context] = []
         for idx, item in enumerate(results):
-            source_id = item["metadata"].get("chunk_id") or f"bm25_{idx}"
+            metadata = dict(item["metadata"])
+            source_id = cast(str, metadata.get("chunk_id", f"bm25_{idx}"))
             contexts.append(
                 Context(
                     source_id=str(source_id),
                     content=item["content"],
-                    metadata=item["metadata"],
+                    metadata=metadata,
                     modality="text",
                     score=float(item["score"]),
                 )
@@ -125,11 +149,12 @@ class HybridRetriever:
         contexts: List[Context] = []
         for idx in top_indices:
             meta = self.image_metadata[int(idx)]
+            metadata = dict(meta.get("metadata", {}))
             contexts.append(
                 Context(
                     source_id=meta.get("source_id", f"image_{idx}"),
                     content="Relevant image evidence",
-                    metadata=meta.get("metadata", {}),
+                    metadata=metadata,
                     modality="image",
                     score=float(scores[idx]),
                 )
@@ -145,7 +170,7 @@ class HybridRetriever:
         contexts: List[Context] = []
         for table in table_hits:
             sql = self.table_registry.keyword_to_sql(query, [table.table])
-            rows: List[Dict[str, object]] = []
+            rows: List[Dict[str, Any]] = []
             if sql:
                 try:
                     rows = self.table_registry.run_sql(sql)
@@ -166,7 +191,12 @@ class HybridRetriever:
             )
         return contexts
 
-    def retrieve(self, query_text: str, top_k: int = DEFAULT_TOP_K, image_b64: Optional[str] = None) -> Dict[str, object]:
+    def retrieve(
+        self,
+        query_text: str,
+        top_k: int = DEFAULT_TOP_K,
+        image_b64: Optional[str] = None,
+    ) -> RetrievalResult:
         dense = self._dense_text(query_text, top_k * 3)
         sparse = self._sparse_text(query_text, top_k * 3)
         tables = self._table_results(query_text, top_k)
@@ -189,7 +219,7 @@ class HybridRetriever:
             source_id = canonical_source_id(idx)
             meta = dict(candidate.metadata)
             meta.setdefault("original_source_id", candidate.source_id)
-            modality = meta.get("modality", "text")
+            modality = cast(str, meta.get("modality", "text"))
             modality_counts[modality] = modality_counts.get(modality, 0) + 1
             meta["retrieval_rank"] = idx + 1
             final_contexts.append(
@@ -201,7 +231,10 @@ class HybridRetriever:
                     score=candidate.score,
                 )
             )
-        return {
-            "contexts": final_contexts,
-            "modality_breakdown": modality_counts,
-        }
+        return cast(
+            RetrievalResult,
+            {
+                "contexts": final_contexts,
+                "modality_breakdown": modality_counts,
+            },
+        )

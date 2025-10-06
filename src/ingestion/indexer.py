@@ -1,9 +1,9 @@
-﻿"""Index builder orchestrating ingestion and persistence."""
+"""Index builder orchestrating ingestion and persistence."""
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, TypedDict
 
 import duckdb
 import numpy as np
@@ -41,7 +41,14 @@ def _persist_faiss(index_path: Path, vectors: np.ndarray) -> None:
     faiss.write_index(index, str(index_path))
 
 
-def _summaries_from_chunks(chunks: List[TextChunk]) -> List[Dict[str, object]]:
+class IndexSummary(TypedDict):
+    texts_indexed: int
+    images_indexed: int
+    tables_indexed: int
+    index_dir: str
+
+
+def _summaries_from_chunks(chunks: List[TextChunk]) -> List[Dict[str, Any]]:
     return [
         {
             "content": chunk.content,
@@ -51,7 +58,7 @@ def _summaries_from_chunks(chunks: List[TextChunk]) -> List[Dict[str, object]]:
     ]
 
 
-def build_indexes(data_root: Path, index_dir: Path, duckdb_path: Path) -> Dict[str, object]:
+def build_indexes(data_root: Path, index_dir: Path, duckdb_path: Path) -> IndexSummary:
     """Main entry point for indexing data under ``data_root``."""
     ensure_dir(index_dir)
     ensure_dir(duckdb_path.parent)
@@ -92,7 +99,7 @@ def build_indexes(data_root: Path, index_dir: Path, duckdb_path: Path) -> Dict[s
     registry = TableRegistry(connection=conn, index_dir=index_dir)
     registry.register_tables(table_docs)
 
-    summary = {
+    summary: IndexSummary = {
         "texts_indexed": len(text_chunks),
         "images_indexed": len(image_docs),
         "tables_indexed": len(table_docs),

@@ -1,15 +1,16 @@
-﻿"""DuckDB-backed table retrieval helpers."""
+"""DuckDB-backed table retrieval helpers."""
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Dict, Iterable, List, Sequence, TypedDict, cast
 
 import duckdb
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from src.ingestion.loaders import TableDocument
 from src.retrieval.embeddings import TextEmbedder, cosine_similarity
@@ -17,6 +18,12 @@ from src.utils.io import ensure_dir
 from src.utils.logging import get_logger
 
 LOGGER = get_logger(__name__)
+
+
+class CatalogEntry(TypedDict):
+    name: str
+    card: str
+    metadata: Dict[str, Any]
 
 CATALOG_FILE = "table_catalog.json"
 EMBED_FILE = "table_embeddings.npy"
@@ -41,7 +48,7 @@ class TableRegistry:
         self.embedder = TextEmbedder()
 
     def register_tables(self, tables: Iterable[TableDocument]) -> None:
-        catalog: List[Dict[str, Any]] = []
+        catalog: List[CatalogEntry] = []
         cards: List[str] = []
         for table in tables:
             catalog.append(
@@ -58,12 +65,13 @@ class TableRegistry:
             np.save(self.embed_path, vectors)
         LOGGER.info("Registered %s tables", len(catalog))
 
-    def _load_catalog(self) -> List[Dict[str, Any]]:
+    def _load_catalog(self) -> List[CatalogEntry]:
         if not self.catalog_path.exists():
             return []
-        return json.loads(self.catalog_path.read_text(encoding="utf-8"))
+        raw = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+        return cast(List[CatalogEntry], raw)
 
-    def ensure_table_loaded(self, entry: Dict[str, Any]) -> None:
+    def ensure_table_loaded(self, entry: CatalogEntry) -> None:
         name = entry["name"]
         metadata = entry.get("metadata", {})
         source_path = metadata.get("source_path")
@@ -90,7 +98,7 @@ class TableRegistry:
         catalog = self._load_catalog()
         if not catalog or not self.embed_path.exists():
             return []
-        embeddings = np.load(self.embed_path)
+        embeddings = cast(NDArray[np.float32], np.load(self.embed_path))
         query_vec = self.embedder.encode([query])[0]
         scores = cosine_similarity(query_vec, embeddings)
         ranked = np.argsort(scores)[::-1][:top_k]
@@ -118,13 +126,13 @@ class TableRegistry:
         catalog = self._load_catalog()
         if not catalog:
             return None
-        table_lookup: Dict[str, Dict[str, Any]] = {entry["name"]: entry for entry in catalog}
+        table_lookup: Dict[str, CatalogEntry] = {entry["name"]: entry for entry in catalog}
         target_table = candidates[0] if candidates else catalog[0]["name"]
         entry = table_lookup.get(target_table)
         if entry is None:
             return None
         self.ensure_table_loaded(entry)
-        columns: List[str] = entry["metadata"].get("columns", [])
+        columns = cast(List[str], entry["metadata"].get("columns", []))
         filters = [kw for kw in words if kw not in {"show", "list", "table", "data", "report"}]
         where_clause = ""
         if filters and columns:
@@ -137,4 +145,5 @@ class TableRegistry:
 
     def run_sql(self, sql: str) -> List[Dict[str, Any]]:
         result = self.connection.execute(sql).fetchdf()
-        return result.to_dict(orient="records")
+        records = result.to_dict(orient="records")
+        return cast(List[Dict[str, Any]], records)

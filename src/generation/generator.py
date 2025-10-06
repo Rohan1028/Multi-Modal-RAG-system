@@ -1,9 +1,9 @@
-﻿"""Generative layer for grounded answers."""
+"""Generative layer for grounded answers."""
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import Any, Iterable, List
 
 from src.generation import prompt
 from src.generation.cite_guard import fill_missing_sources, validate
@@ -60,7 +60,7 @@ class OpenAIGenerator:
         contexts_list = list(contexts)
         citations = [ctx.source_id for ctx in contexts_list]
         user_prompt = prompt.build_user_prompt(question, [ctx.content for ctx in contexts_list])
-        completion = self.client.responses.create(
+        completion: Any = self.client.responses.create(
             model="gpt-4o-mini",
             input=[
                 {"role": "system", "content": prompt.SYSTEM_PROMPT},

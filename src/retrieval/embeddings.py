@@ -1,13 +1,14 @@
-﻿"""Embedding utilities with graceful fallbacks."""
+"""Embedding utilities with graceful fallbacks."""
 from __future__ import annotations
 
 import hashlib
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, cast
 
 import numpy as np
 from PIL import Image
+from numpy.typing import NDArray
 
 try:  # pragma: no cover - heavy dependency
     from sentence_transformers import SentenceTransformer
@@ -27,13 +28,15 @@ from src.utils.logging import get_logger
 
 LOGGER = get_logger(__name__)
 
+FloatArray = NDArray[np.float32]
 
-def _hash_to_vector(payload: str, dim: int = 384) -> np.ndarray:
+
+def _hash_to_vector(payload: str, dim: int = 384) -> FloatArray:
     digest = hashlib.sha256(payload.encode("utf-8")).digest()
     expanded = (digest * ((dim // len(digest)) + 1))[:dim]
     arr = np.frombuffer(expanded, dtype=np.uint8).astype(np.float32)
     norm = np.linalg.norm(arr) or 1.0
-    return arr / norm
+    return cast(FloatArray, arr / norm)
 
 
 class TextEmbedder:
@@ -56,15 +59,16 @@ class TextEmbedder:
             LOGGER.warning("Falling back to hash embeddings: %s", exc)
             return None
 
-    def encode(self, texts: Sequence[str]) -> np.ndarray:
+    def encode(self, texts: Sequence[str]) -> FloatArray:
         if not texts:
-            return np.zeros((0, self._dim), dtype=np.float32)
+            return cast(FloatArray, np.zeros((0, self._dim), dtype=np.float32))
         model = self._model
         if model is None:
             vectors = np.stack([_hash_to_vector(text, self._dim) for text in texts])
         else:
-            vectors = np.asarray(model.encode(list(texts), normalize_embeddings=True), dtype=np.float32)
-        return vectors
+            encoded = model.encode(list(texts), normalize_embeddings=True)
+            vectors = np.asarray(encoded, dtype=np.float32)
+        return cast(FloatArray, vectors)
 
 
 class ImageEmbedder:
@@ -90,21 +94,22 @@ class ImageEmbedder:
             LOGGER.warning("CLIP load failed (%s); using fallback", exc)
             return None, None
 
-    def encode_paths(self, image_paths: Sequence[Path]) -> np.ndarray:
+    def encode_paths(self, image_paths: Sequence[Path]) -> FloatArray:
         if not image_paths:
-            return np.zeros((0, self._dim), dtype=np.float32)
+            return cast(FloatArray, np.zeros((0, self._dim), dtype=np.float32))
         model, processor = self._model, self._processor
         if model is None or processor is None:
-            vectors = []
+            vectors: List[FloatArray] = []
             for path in image_paths:
                 image = load_image(path)
                 arr = np.array(image).astype(np.float32)
                 vec = arr.mean(axis=(0, 1))
                 padded = np.pad(vec, (0, max(0, self._dim - vec.size)))[: self._dim]
                 norm = np.linalg.norm(padded) or 1.0
-                vectors.append((padded / norm).astype(np.float32))
+                normalized = (padded / norm).astype(np.float32)
+                vectors.append(cast(FloatArray, normalized))
                 image.close()
-            return np.stack(vectors)
+            return cast(FloatArray, np.stack(vectors))
 
         images: List[Image.Image] = [load_image(path) for path in image_paths]
         inputs = processor(images=images, return_tensors="pt")
@@ -113,9 +118,9 @@ class ImageEmbedder:
             features = features / features.norm(p=2, dim=-1, keepdim=True)
         for image in images:
             image.close()
-        return features.cpu().numpy().astype(np.float32)
+        return cast(FloatArray, features.cpu().numpy().astype(np.float32))
 
-    def encode_arrays(self, images: Iterable[Image.Image]) -> np.ndarray:
+    def encode_arrays(self, images: Iterable[Image.Image]) -> FloatArray:
         """Encode in-memory images by writing temporary files."""
         import tempfile
 
@@ -126,7 +131,7 @@ class ImageEmbedder:
                 image.save(temp_file.name)
                 temp_file.close()
                 temp_paths.append(Path(temp_file.name))
-            return self.encode_paths(temp_paths)
+            return self.encode_paths(tuple(temp_paths))
         finally:
             for path in temp_paths:
                 try:
@@ -135,9 +140,9 @@ class ImageEmbedder:
                     continue
 
 
-def cosine_similarity(query: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+def cosine_similarity(query: FloatArray, matrix: FloatArray) -> FloatArray:
     if matrix.size == 0:
-        return np.zeros((0,), dtype=np.float32)
+        return cast(FloatArray, np.zeros((0,), dtype=np.float32))
     query_norm = query / (np.linalg.norm(query) or 1.0)
     matrix_norm = matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-8)
-    return matrix_norm @ query_norm
+    return cast(FloatArray, matrix_norm @ query_norm)

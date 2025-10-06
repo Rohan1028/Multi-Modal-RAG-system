@@ -1,9 +1,9 @@
-﻿"""Pre-processing utilities for ingestion."""
+"""Pre-processing utilities for ingestion."""
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List
 
 from src.ingestion.loaders import RawDocument
 
@@ -13,7 +13,7 @@ class TextChunk:
     """A normalized chunk of text with metadata."""
 
     content: str
-    metadata: Dict[str, object]
+    metadata: Dict[str, Any]
 
 
 def _tokenize(text: str) -> List[str]:

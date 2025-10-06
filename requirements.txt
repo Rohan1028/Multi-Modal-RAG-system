@@ -21,6 +21,7 @@ rich>=13.7.1
 requests>=2.31.0
 beautifulsoup4>=4.12.2
 pdfminer.six>=20231228
+pydantic-settings>=2.2.1
 datasets>=2.18.0
 openai>=1.30.0
 pytest>=8.2.0
