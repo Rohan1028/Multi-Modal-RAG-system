@@ -4,8 +4,7 @@ from __future__ import annotations
 import re
 from typing import Iterable, List, Sequence
 
-SOURCE_PATTERN = re.compile(r"\[source_(\d+)\]")
-SENTENCE_PATTERN = re.compile(r"[^.!?]+[.!?]")
+SOURCE_PATTERN = re.compile(r"\[(source_\d+)\]")
 
 
 def canonical_source_id(index: int) -> str:
@@ -17,7 +16,17 @@ def extract_source_ids(text: str) -> List[str]:
 
 
 def sentences(text: str) -> List[str]:
-    return [match.group(0).strip() for match in SENTENCE_PATTERN.finditer(text)]
+    """Split text into sentences while keeping trailing citation tokens attached."""
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences: List[str] = []
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("[") and sentences:
+            sentences[-1] = f"{sentences[-1]} {part}".strip()
+        else:
+            sentences.append(part.strip())
+    return sentences
 
 
 def validate(answer: str, available_ids: Sequence[str]) -> bool:
