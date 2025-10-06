@@ -1,7 +1,8 @@
 ﻿"""BM25 index using Whoosh with a lightweight fallback."""
 from __future__ import annotations
 
-import json\\nimport shutil
+import json
+import shutil
 from pathlib import Path
 from typing import Dict, Iterable, List
 
@@ -41,9 +42,15 @@ def build_index(index_dir: Path, chunks: Iterable[TextChunk]) -> None:
         return
 
     schema = Schema(doc_id=ID(stored=True, unique=True), content=TEXT(stored=True))
-    if not Path(index_dir).exists():
-        index_dir.mkdir(parents=True)
-    if index.exists_in(index_dir):\n        for child in Path(index_dir).iterdir():\n            if child.is_file() or child.is_dir():\n                if child.is_dir():\n                    import shutil\n                    shutil.rmtree(child)\n                else:\n                    child.unlink()\n    idx = index.create_in(index_dir, schema)\n    writer = idx.writer()\n    for doc_id, chunk in enumerate(chunk_list):\n        writer.add_document(doc_id=str(doc_id), content=chunk.content)\n    writer.commit()\n    idx = index.create_in(index_dir, schema)
+    index_dir.mkdir(parents=True, exist_ok=True)
+    if index.exists_in(index_dir):
+        for child in Path(index_dir).iterdir():
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+
+    idx = index.create_in(index_dir, schema)
     writer = idx.writer()
     for doc_id, chunk in enumerate(chunk_list):
         writer.add_document(doc_id=str(doc_id), content=chunk.content)

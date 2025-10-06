@@ -1,6 +1,4 @@
-﻿from pathlib import Path
-
-import pytest
+from pathlib import Path
 
 from src.ingestion.indexer import build_indexes
 

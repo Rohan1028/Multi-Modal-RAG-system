@@ -4,8 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, List
 
-import numpy as np
-
 from src.retrieval.embeddings import TextEmbedder, cosine_similarity
 from src.utils.logging import get_logger
 

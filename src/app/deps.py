@@ -10,10 +10,10 @@ from src.retrieval.hybrid import HybridRetriever
 
 @lru_cache(maxsize=1)
 def get_retriever() -> HybridRetriever:
-    settings = get_settings()
+    settings: Settings = get_settings()
     return HybridRetriever(index_dir=settings.index_dir, duckdb_path=settings.duckdb_path)
 
 
 def get_answer_generator():
-    settings = get_settings()
+    settings: Settings = get_settings()
     return get_generator(settings.generator_backend)

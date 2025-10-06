@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Dict, List
 
@@ -11,9 +10,6 @@ import numpy as np
 
 from src.generation.cite_guard import canonical_source_id
 from src.ingestion.loaders import (
-    ImageDocument,
-    RawDocument,
-    TableDocument,
     iter_image_documents,
     iter_table_documents,
     iter_text_documents,
