@@ -1,0 +1,26 @@
+﻿name: Feature request
+description: Propose a new feature
+labels: ["kind:feature"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: One-line summary
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What & why
+  - type: textarea
+    id: ac
+    attributes:
+      label: Acceptance Criteria
+      description: Bullet AC list
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate
+      placeholder: e.g., 3h

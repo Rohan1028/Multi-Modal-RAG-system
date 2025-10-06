@@ -1,0 +1,33 @@
+﻿services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./.cache:/app/.cache
+      - ./data:/app/data
+    depends_on:
+      - vectorstore
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./.cache:/app/.cache
+      - ./data:/app/data
+    depends_on:
+      - api
+  vectorstore:
+    image: busybox:1.36.1
+    command: ["sh", "-c", "mkdir -p /vector-cache && tail -f /dev/null"]
+    volumes:
+      - ./.cache:/vector-cache
+version: "3.9"

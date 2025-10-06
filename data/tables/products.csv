@@ -1,0 +1,5 @@
+﻿product_id,name,category,price_usd,stock_status
+P-100,Aurora Sense Starter Kit,Sensors,199,In Stock
+P-200,Aurora Guard Camera,Security,349,Backorder
+P-300,Aurora Flow Thermostat,HVAC,279,In Stock
+P-310,Aurora Flow Thermostat Pro,HVAC,349,Preorder

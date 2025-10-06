@@ -1,0 +1,6 @@
+﻿Aurora Devices Product Highlights:
+- Sense Module: Battery life up to 18 months.
+- Guard Camera: Edge inference with CLIP-based tagging.
+- Flow Thermostat: Supports BACnet and Matter integrations.
+
+All devices connect to the Aurora Cloud Hub for centralized monitoring and analytics dashboards.

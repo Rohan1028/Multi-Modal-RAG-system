@@ -1,0 +1,41 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+.venv/
+venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Data caches
+.cache/
+artifacts/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Logs
+logs/
+*.log
+
+# Streamlit
+.streamlit/
+
+# Coverage
+htmlcov/
+.coverage*
+
+# Misc
+.DS_Store
+Thumbs.db
+

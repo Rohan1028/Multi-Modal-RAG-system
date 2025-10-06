@@ -1,0 +1,27 @@
+﻿name: Bug report
+description: Report a bug
+labels: ["kind:bug", "priority:P1"]
+body:
+  - type: input
+    id: context
+    attributes:
+      label: Context
+      placeholder: Where did it happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
