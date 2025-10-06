@@ -4,7 +4,7 @@
 
 A production-ready, multimodal retrieval-augmented generation (RAG) platform that indexes documents, images, and tables; performs hybrid dense + sparse retrieval with re-ranking; enforces inline citations; and ships with a Streamlit UI, FastAPI service, evaluation harness, and Docker deployment workflow.
 
-![Workflow](docs/architecture.png)
+![Workflow](docs/workflow.png)
 
 ## Key Capabilities
 
