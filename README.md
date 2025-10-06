@@ -4,7 +4,7 @@
 
 A production-ready, multimodal retrieval-augmented generation (RAG) platform that indexes documents, images, and tables; performs hybrid dense + sparse retrieval with re-ranking; enforces inline citations; and ships with a Streamlit UI, FastAPI service, evaluation harness, and Docker deployment workflow.
 
-![Architecture](docs/architecture.png)
+![Workflow](docs/architecture.png)
 
 ## Key Capabilities
 
@@ -80,10 +80,6 @@ print(response.json()["answer"])
 ```bash
 curl -X POST http://localhost:8000/index -H "Content-Type: application/json" -d '{"data_root": "data"}'
 ```
-
-### Streamlit Preview
-
-![Streamlit](docs/demo_screenshots/ui_query.png)
 
 ## Architecture Notes
 

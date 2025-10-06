@@ -32,9 +32,9 @@ dependencies = [
   "tqdm>=4.66.4",
   "scikit-learn>=1.4.2",
   "rich>=13.7.1",
-  "requests>=2.31.0"
-  "beautifulsoup4>=4.12.2"
-  "pdfminer.six>=20231228"
+  "requests>=2.31.0",
+  "beautifulsoup4>=4.12.2",
+  "pdfminer.six>=20231228",
   "datasets>=2.18.0"
 ]
 
