@@ -124,7 +124,7 @@ All assets are synthetic for demo purposes; no external licenses required.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). We use `area:*`, `kind:*`, and `priority:*` labels in issues and milestones M0–M7 for roadmap tracking.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). I use `area:*`, `kind:*`, and `priority:*` labels in issues and milestones M0-M7 for roadmap tracking.
 
 ---
 
